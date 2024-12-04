@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
 import os
+import glob
 
 # not using this but keeping for reference
 def closest_point(points, target):
@@ -79,9 +80,12 @@ def perspective_warp(pt_A, pt_B, pt_C, pt_D):
     homography_matrix = cv.getPerspectiveTransform(source_points, destination_points)
     print(homography_matrix)
     warped_image = cv.warpPerspective(image, homography_matrix, (width, height))
-    cv.imshow('Warped Image', warped_image)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+  
+    return warped_image
+
+    # cv.imshow('Warped Image', warped_image)
+    # cv.waitKey(100)
+    # cv.destroyAllWindows()
     
 def line_properties(pt1, pt2):
     if pt1[0] == pt2[0]:  # Vertical line
@@ -141,58 +145,130 @@ def average_colors(colors, window_size=3):
 
     return averaged_colors
 
-# # Get the directory where the current script is located
-# script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# # Probably need to change this, but code your own path!
-# image_path = os.path.join(script_dir, 'capture_1731877075.png')
-script_dir = os.path.dirname(os.path.abspath(__file__))
+def contour_images(image):
 
-# Construct the full path to the image file
-image_path = os.path.join(script_dir, 'frames/sunsetimg_1.jpg')
-print(image_path)
-
-image = cv.imread(image_path) 
-
-if image is None:
-    print("Error: Could not load image.")
-    exit()
-    
-gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-edges = cv.Canny(gray, 50, 150)
-contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-points = []
-
-if contours:
-    largest_contour = max(contours, key=cv.contourArea)
-
-    epsilon = 0.02 * cv.arcLength(largest_contour, True)
-    approx = cv.approxPolyDP(largest_contour, epsilon, True)
-    corners = approx.reshape(-1, 2) 
-
-    corners = sorted(corners, key=lambda p: p[1])
-    top_points = sorted(corners[:2], key=lambda p: p[0])
-    bottom_points = sorted(corners[2:], key=lambda p: p[0])
-
-    for point in approx:
-        print(f"{tuple(point[0])}")
-        points.append(point)
+    if image is None:
+        print("Error: Could not load image.")
+        exit()
         
-    if len(approx) == 4:
-        top_left, top_right = top_points
-        bottom_left, bottom_right = bottom_points
-        # image = draw_line(image, top_left, top_right)
-        # image = draw_line(image, top_right, bottom_right)
-        # image = draw_line(image, bottom_right, bottom_left)
-        # image = draw_line(image, top_left, bottom_left)
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    edges = cv.Canny(gray, 50, 150)
+    contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    points = []
 
-cv.imshow('Screen Detection', image)
-cv.waitKey(0)
-cv.destroyAllWindows()
+    if not contours:
+        print("No contours found in the image.")
+        return None
 
-perspective_warp(top_left, bottom_left, bottom_right, top_right)
-color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right)
+    if contours:
+        largest_contour = max(contours, key=cv.contourArea)
 
-avg_color = average_colors(color_array)
+        epsilon = 0.02 * cv.arcLength(largest_contour, True)
+        approx = cv.approxPolyDP(largest_contour, epsilon, True)
+        corners = approx.reshape(-1, 2) 
 
-draw_color_line(avg_color)
+        corners = sorted(corners, key=lambda p: p[1])
+        top_points = sorted(corners[:2], key=lambda p: p[0])
+        bottom_points = sorted(corners[2:], key=lambda p: p[0])
+
+        for point in approx:
+            print(f"{tuple(point[0])}")
+            points.append(point)
+            
+        if len(approx) == 4:
+            top_left, top_right = top_points
+            bottom_left, bottom_right = bottom_points
+
+            # show contour lines for each image
+            image = draw_line(image, top_left, top_right)
+            image = draw_line(image, top_right, bottom_right)
+            image = draw_line(image, bottom_right, bottom_left)
+            image = draw_line(image, top_left, bottom_left)
+            return top_left, bottom_left, bottom_right, top_right
+        else:
+            print(f"Detected contour does not have 4 corners. Found {len(approx)} corners.")
+        return None
+    
+    # cv.imshow('Screen Detection', image)
+    # cv.waitKey(100)
+    # cv.destroyAllWindows()
+
+
+
+def show_video(images,title):
+    # plt.title(title)
+    # for i,image in enumerate(images):
+    #     if i == 0:
+    #         obj = cv.imshow(image)
+    #     else:
+    #         obj.set_data(image)
+    #     cv.pause(.01)
+    #     plt.draw()
+
+    for image in images:
+            cv.imshow(title, image)  # Display the image in the OpenCV window
+            key = cv.waitKey(300)  # Wait for 30 ms for the next frame
+            if key == 27:  # Exit if 'ESC' is pressed
+                break
+    cv.destroyAllWindows()  # Close the OpenCV window after the video ends
+
+
+
+
+if __name__ == '__main__':
+
+    # Get the directory where the current script is located
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # # Probably need to change this, but code your own path!
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Construct the full path to the image file
+    image_path = os.path.join(script_dir, 'rgb_images')
+    images_list = glob.glob(os.path.join(image_path, '*.png'))
+
+    # image_path = os.path.join(script_dir, 'rgb_images/capture_1731882885.png')
+    # print(image_path)
+
+    images = [cv.imread(i) for i in images_list]  # Example frames
+    
+    warped_images_list = []
+        
+    # loop through each image frame in images 'video' folder
+    for image in images:
+
+        # image = cv.imread(img)
+    # image = cv.imread(image_path) 
+        try:
+            corners = contour_images(image)
+            if corners is None:
+                print(f"Skipping image due to invalid contour.")
+                continue
+
+            top_left, bottom_left, bottom_right, top_right = contour_images(image)
+
+            warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right)
+
+            warped_images_list.append(warped_image)
+
+            color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right)
+
+            avg_color = average_colors(color_array)
+
+            draw_color_line(avg_color)
+
+        except ValueError as e:
+            print(f"Error processing image: {e}")
+            continue
+
+    # Assuming `images` is a list of image frames
+    # images = [cv.imread(f"frame_{i}.jpg") for i in range(10)]  # Example frames
+
+    # warped_images = [cv.imread(i) for i in warped_images_list]  # Example frames
+
+    # extract the color data from edges of each image
+    show_video(images, "Video Playback")
+
+    # show the warped color from the top edge of the computer
+    show_video(warped_images_list, "Warped Images")
