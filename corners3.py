@@ -194,26 +194,26 @@ def contour_images(image):
 
         epsilon = 0.02 * cv.arcLength(largest_contour, True)
         approx = cv.approxPolyDP(largest_contour, epsilon, True)
-        corners = approx.reshape(-1, 2) 
-
-        corners = sorted(corners, key=lambda p: p[1])
-        top_points = sorted(corners[:2], key=lambda p: p[0])
-        bottom_points = sorted(corners[2:], key=lambda p: p[0])
-
-        for point in approx:
-            print(f"{tuple(point[0])}")
-            points.append(point)
-            
         if len(approx) == 4:
-            top_left, top_right = top_points
-            bottom_left, bottom_right = bottom_points
+            corners = approx.reshape(-1, 2) 
 
-            # show contour lines for each image
-            # image = draw_line(image, top_left, top_right)
-            # image = draw_line(image, top_right, bottom_right)
-            # image = draw_line(image, bottom_right, bottom_left)
-            # image = draw_line(image, top_left, bottom_left)
-            return top_left, bottom_left, bottom_right, top_right
+            corners = sorted(corners, key=lambda p: p[1])
+            top_points = sorted(corners[:2], key=lambda p: p[0])
+            bottom_points = sorted(corners[2:], key=lambda p: p[0])
+
+            for point in approx:
+                print(f"{tuple(point[0])}")
+                points.append(point)
+                
+                top_left, top_right = top_points
+                bottom_left, bottom_right = bottom_points
+
+                # show contour lines for each image
+                image = draw_line(image, top_left, top_right)
+                image = draw_line(image, top_right, bottom_right)
+                image = draw_line(image, bottom_right, bottom_left)
+                image = draw_line(image, top_left, bottom_left)
+                return top_left, bottom_left, bottom_right, top_right
         else:
             print(f"Detected contour does not have 4 corners. Found {len(approx)} corners.")
         return None
@@ -282,6 +282,15 @@ def play_video_folder():
 
 ##################################################################################################
 
+def detectScreen(frame):
+    corners = contour_images(frame)
+
+    if corners is None:
+        print(f"Skipping image due to invalid contour.")
+        
+    return corners
+
+##################################################################################################
 
 def RT_screen_cam():
     print("Starting webcam initialization...")
@@ -299,7 +308,8 @@ def RT_screen_cam():
 
     warped_images_list = []
 
-    frame_contoured = 0
+    corners_detected = 0
+    counter = 0
 
     corners = None
 
@@ -316,41 +326,53 @@ def RT_screen_cam():
         #cv.imshow('frame', frame)
 
         try:
-            # Contour only a single frame, then continuously warp on those specified pixels in the frame
 
-            # while corners is None:
-            #     if frame_contoured == 0:
-            #         corners = contour_images(frame)
+            # X amount of contours to allow the camera to find the screen, pause the screen and check that the screen is valid
+            # if not, press a key and try again, otherwise lock in place and keep taking that data from that spot in the screen
 
-            #     if corners is None:
-            #         # print(f"Skipping image due to invalid contour.")
-            #         continue
-            #     # show all of the live warped images
-            #     # cv.imshow('frame', frame)
-            #     # wait 100 ms for each frame
-            #     if cv.waitKey(100) == ord('q'):
-            #         print("Exiting capture loop.")
-            #         break
-            #     print("Looping \n")
-            #     if corners is not None:
-            #         break
+            if not corners_detected and counter < 50:
+                corners = detectScreen(frame)
 
-            # frame_contoured = 1
-            
+                        # show the live frames
+                cv.imshow('frame', frame)
+                # wait 100 ms for each frame
+                if cv.waitKey(1) == ord('q'):
+                    print("Exiting capture loop.")
+                    break
 
-            # This code works in contouring and warping RT webcam feed only on solid colored screens 
+            if counter == 50:
 
-            corners = contour_images(frame)
+                corners_detected = 1
 
-            if corners is None:
-                # print(f"Skipping image due to invalid contour.")
-                continue
+                # Wait for a key press for 1 ms
+                key = cv.waitKey(1) & 0xFF
 
-            top_left, bottom_left, bottom_right, top_right = corners
+                if key == ord('p'):  # Press 'p' to pause
+                    paused = not paused  # Toggle pause state
+                    if paused:
+                        print("Webcam paused. Press 'p' to resume.")
+                    else:
+                        print("Webcam resumed.")
 
-            warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right, frame)
+                elif key == ord('q'):  # Press 'q' to quit
+                    print("Exiting webcam feed.")
+                    break
 
-            warped_images_list.append(warped_image)
+            counter += 1
+
+            if corners_detected and counter > 50:
+                top_left, bottom_left, bottom_right, top_right = corners
+
+                warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right, frame)
+
+                warped_images_list.append(warped_image)
+
+                # show all of the live warped images
+                cv.imshow('warped_image', warped_image)
+                # wait 100 ms for each frame
+                if cv.waitKey(100) == ord('q'):
+                    print("Exiting capture loop.")
+                    break
 
             # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right)
 
@@ -362,19 +384,14 @@ def RT_screen_cam():
             print(f"Error processing image: {e}")
             continue
 
-        # show the live frames
-        # cv.imshow('frame', frame)
+
+
+        # # show all of the live warped images
+        # cv.imshow('warped_image', warped_image)
         # # wait 100 ms for each frame
-        # if cv.waitKey(1) == ord('q'):
+        # if cv.waitKey(100) == ord('q'):
         #     print("Exiting capture loop.")
         #     break
-
-        # show all of the live warped images
-        cv.imshow('warped_image', warped_image)
-        # wait 100 ms for each frame
-        if cv.waitKey(100) == ord('q'):
-            print("Exiting capture loop.")
-            break
 
 
     # When everything done, release the capture
