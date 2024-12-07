@@ -4,6 +4,9 @@ from matplotlib import pyplot as plt
 import os
 import time
 import glob
+import scipy
+import argparse
+
 
 # not using this but keeping for reference
 def closest_point(points, target):
@@ -109,6 +112,39 @@ def line_properties(pt1, pt2):
     intercept = pt1[1] - slope * pt1[0]
     return slope, intercept
     
+##################################################################################################
+
+
+def kernal_inbetween(ptA, ptB, ptC, ptD, k_image, kernel_size, segments=60):
+
+    g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
+
+    #step inbetween 
+    horizontal_steps = int(segments*0.4)
+    vertical_steps = int(segments*0.3)
+    colors = []
+    
+    #A to C 
+    for step in range(vertical_steps + 1):
+        point_x = int(ptA[0] + step * (ptC[0] - ptA[0]) / vertical_steps)
+        point_y = int(ptA[1] + step * (ptC[1] - ptA[1]) / vertical_steps)
+        kernel_output = cv.filter2D(k_image, -1, g_1)[point_y, point_x]
+        colors.append(kernel_output)  
+    #A to B
+    for step in range(horizontal_steps + 1):
+        point_x = int(ptA[0] + step * (ptB[0] - ptA[0]) / horizontal_steps)
+        point_y = int(ptA[1] + step * (ptB[1] - ptA[1]) / horizontal_steps)
+        kernel_output = cv.filter2D(k_image, -1, g_1)[point_y, point_x]
+        colors.append(kernel_output)  
+
+    #B to D
+    for step in range(vertical_steps + 1):
+        point_x = int(ptB[0] + step * (ptD[0] - ptB[0]) / vertical_steps)
+        point_y = int(ptB[1] + step * (ptD[1] - ptB[1]) / vertical_steps)
+        kernel_output = cv.filter2D(k_image, -1, g_1)[point_y, point_x]
+        colors.append(kernel_output)  
+
+    return colors
 
 ##################################################################################################
 
@@ -292,7 +328,7 @@ def detectScreen(frame):
 
 ##################################################################################################
 
-def RT_screen_cam():
+def RT_screen_cam(kernel_size):
     print("Starting webcam initialization...")
 
     start = time.time()
@@ -333,7 +369,7 @@ def RT_screen_cam():
             if not corners_detected and counter < 50:
                 corners = detectScreen(frame)
 
-                        # show the live frames
+                # show contour results after 50 loops
                 cv.imshow('frame', frame)
                 # wait 100 ms for each frame
                 if cv.waitKey(1) == ord('q'):
@@ -361,6 +397,7 @@ def RT_screen_cam():
             counter += 1
 
             if corners_detected and counter > 50:
+
                 top_left, bottom_left, bottom_right, top_right = corners
 
                 warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right, frame)
@@ -374,11 +411,14 @@ def RT_screen_cam():
                     print("Exiting capture loop.")
                     break
 
-            # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right)
+                # color_array = kernal_inbetween(top_left, top_right, bottom_left, bottom_right, frame, kernel_size)
+                # print(kernel_size)
 
-            # avg_color = average_colors(color_array)
+                color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
 
-            # draw_color_line(avg_color)
+                avg_color = average_colors(color_array)
+
+                draw_color_line(avg_color)
 
         except ValueError as e:
             print(f"Error processing image: {e}")
@@ -403,8 +443,11 @@ def RT_screen_cam():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="AmbientSync")
+    parser.add_argument("--kernel_size", type=int, help="color kernel size", default=50)
+    args = parser.parse_args()
 
-    RT_screen_cam()
+    RT_screen_cam(args.kernel_size)
 
     # play_video_folder()
 
