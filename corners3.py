@@ -9,6 +9,11 @@ import argparse
 from scipy.ndimage import convolve
 import serial
 import time
+# from serial import Serial as ser 
+
+def sendCommand(ser, command):
+    ser.write((command + '\n').encode('utf-8'))  # Send the command
+
 
 def control_arduino_led(port, baudrate, command):
     """
@@ -21,11 +26,14 @@ def control_arduino_led(port, baudrate, command):
     """
     try:
         with serial.Serial(port, baudrate, timeout=1) as ser:
-            time.sleep(2)  # Wait for Arduino to reset after serial connection
+            time.sleep(1)  # Wait for Arduino to reset after serial connection
             print(f"Connected to {port}. Sending command: {command}")
-            ser.write((command + '\n').encode('utf-8'))  # Send the command
+            # sendCommand(ser, command)
+            return ser
+
     except serial.SerialException as e:
         print(f"Serial error: {e}")
+
 
 # not using this but keeping for reference
 def closest_point(points, target):
@@ -115,7 +123,7 @@ def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):
     ], dtype=np.float32)
     
     homography_matrix = cv.getPerspectiveTransform(source_points, destination_points)
-    print(homography_matrix)
+    # print(homography_matrix)
     warped_image = cv.warpPerspective(image, homography_matrix, (width, height))
   
     return warped_image
@@ -210,8 +218,8 @@ def draw_color_line(colors, image_width=500, image_height=100, output_path="outp
         color = colors[i]
         cv.line(image, (start_x, image_height // 2), (end_x, image_height // 2), color, thickness=2)
 
-    cv.imwrite(output_path, image)
-    print(f"Image saved to {output_path}")
+    # cv.imwrite(output_path, image)
+    # print(f"Image saved to {output_path}")
 
 
 ##################################################################################################
@@ -395,7 +403,7 @@ def RT_screen_cam(kernel_size):
 
     start = time.time()
     # Attempt to open the camera
-    cap = cv.VideoCapture(0, cv.CAP_DSHOW)
+    cap = cv.VideoCapture(1, cv.CAP_DSHOW)
     elapsed_time = time.time() - start
     if not cap.isOpened():
         print(f"Failed to open camera after {elapsed_time:.2f} seconds.")
@@ -408,9 +416,21 @@ def RT_screen_cam(kernel_size):
 
     corners_detected = 0
     counter = 0
-    segments = 2
-
+    segments = 5
+    connected = 0
     g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
+    # ser = None
+
+    try:
+        ser = serial.Serial("COM3", 115200, timeout=1)
+        time.sleep(2)  # Wait for Arduino to reset after serial connection
+        print(f"Connected.")
+            # sendCommand(ser, command)
+            # return ser
+
+    except serial.SerialException as e:
+        print(f"Serial error: {e}")
+
 
 
     while True:
@@ -421,7 +441,7 @@ def RT_screen_cam(kernel_size):
             print("Can't receive frame (stream end?). Retrying...")
             continue  # Retry instead of exiting immediately
 
-        print(f"Frame captured at {time.time():.2f} seconds")  # Log timestamp of each frame
+        #print(f"Frame captured at {time.time():.2f} seconds")  # Log timestamp of each frame
         # Display the resulting frame
         #cv.imshow('frame', frame)
 
@@ -434,7 +454,7 @@ def RT_screen_cam(kernel_size):
                 corners = detectScreen(frame)
 
                 # show contour results after 50 loops
-                cv.imshow('frame', frame)
+                # cv.imshow('frame', frame)
                 # wait 100 ms for each frame
                 if cv.waitKey(1) == ord('q'):
                     print("Exiting capture loop.")
@@ -471,25 +491,37 @@ def RT_screen_cam(kernel_size):
                 warped_images_list.append(warped_image)
 
                 # show all of the live warped images
-                cv.imshow('warped_image', warped_image)
+                # cv.imshow('warped_image', warped_image)
                 # wait 100 ms for each frame
-                if cv.waitKey(100) == ord('q'):
+                if cv.waitKey(50) == ord('q'):
                     print("Exiting capture loop.")
                     break
 
                 # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
-
-                color_array = np.array(kernal_inbetween(warped_image, g_1, segments))
+                rgb_image = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
+                color_array = np.array(kernal_inbetween(rgb_image, g_1, segments))
                 # print(kernel_size)
                 # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
                 avg_color = average_colors(color_array)
                 # print(avg_color)
                 draw_color_line(avg_color)
                 
+
+
                 #SENDING TO PRANAV
                 flattened = list(np.concatenate(color_array))
                 send_buf = [segments] + flattened + [9999]
-                control_arduino_led("COM3", 115200, send_buf)
+                send_str = ','.join(map(str, send_buf))  # Convert list to a comma-separated string
+
+                # control_arduino_led("COM3", 115200, send_str)
+
+
+                if ser and ser.is_open:
+                    sendCommand(ser, send_str)
+                # else:
+                #     ser = control_arduino_led("COM3", 115200, send_str)
+                #     connected = 1
+   
 
             
                 
