@@ -408,6 +408,7 @@ def RT_screen_cam(kernel_size):
 
     corners_detected = 0
     counter = 0
+    segments = 2
 
     g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
 
@@ -478,7 +479,7 @@ def RT_screen_cam(kernel_size):
 
                 # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
 
-                color_array = np.array(kernal_inbetween(warped_image, g_1))
+                color_array = np.array(kernal_inbetween(warped_image, g_1, segments))
                 # print(kernel_size)
                 # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
                 avg_color = average_colors(color_array)
