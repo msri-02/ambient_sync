@@ -6,6 +6,7 @@ import time
 import glob
 import scipy
 import argparse
+from scipy.ndimage import convolve
 
 
 # not using this but keeping for reference
@@ -76,14 +77,17 @@ def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):
     # width = 640
     # height = 480
 
-    width_top = euclidean_distance(top_left, top_right)
-    width_bottom = euclidean_distance(bottom_left, bottom_right)
-    width = int(max(width_top, width_bottom))
+    # width_top = euclidean_distance(top_left, top_right)
+    # width_bottom = euclidean_distance(bottom_left, bottom_right)
+    # width = int(max(width_top, width_bottom))
 
-     # calculate the desired height
-    height_right = euclidean_distance(top_right, bottom_right)
-    height_left = euclidean_distance(top_left, bottom_left)
-    height = int(max(height_left, height_right))
+    #  # calculate the desired height
+    # height_right = euclidean_distance(top_right, bottom_right)
+    # height_left = euclidean_distance(top_left, bottom_left)
+    # height = int(max(height_left, height_right))    
+    
+    width = 640
+    height = 480
 
     destination_points = np.array([
     [0, 0],                     # Top-left corner
@@ -326,6 +330,44 @@ def detectScreen(frame):
         
     return corners
 
+
+def applyWhiteBalancing(red_channel, green_channel, blue_channel):
+    # apply white balancing by scaling each channel so that it's mean is 0.25
+    red_coefficient = 0.5 / np.mean(red_channel)
+    green_coefficient = 0.5 / np.mean(green_channel)
+    blue_coefficient = 0.5 / np.mean(blue_channel)
+
+    # stack the scaled channels to create the new image
+    stacked_im = np.stack([red_channel * red_coefficient, green_channel * green_coefficient, blue_channel * blue_coefficient], axis = -1)
+    return stacked_im
+
+def applyGammaAndCompress(stacked_image):
+    # apply an inverse gamme curve x' = x^(1/gamma) where 1/gamma = 0.55
+    gamma = 1/0.55
+    stacked_image = stacked_image ** (1/gamma)
+
+    # clip to [0 1] range, scale by 255, and convert to 8-bit unsigned int
+    new_im = np.clip(stacked_image, 0, 1)
+    # new_im = new_im * 255
+    new_im = (new_im * 255).astype('uint8')
+
+    return new_im
+
+def increase_saturation(image, saturation_factor=1.5):
+    # Convert image to HSV color space
+    hsv = cv.cvtColor(image, cv.COLOR_RGB2HSV)
+
+    # Scale the saturation channel (index 1)
+    hsv[..., 1] = hsv[..., 1] * saturation_factor
+
+    # Clip the saturation values to the [0, 255] range
+    hsv[..., 1] = np.clip(hsv[..., 1], 0, 255)
+
+    # Convert back to RGB color space
+    saturated_image = cv.cvtColor(hsv, cv.COLOR_HSV2RGB)
+
+    return saturated_image
+
 ##################################################################################################
 
 def RT_screen_cam(kernel_size):
@@ -347,7 +389,6 @@ def RT_screen_cam(kernel_size):
     corners_detected = 0
     counter = 0
 
-    corners = None
 
     while True:
         # Capture frame-by-frame
@@ -400,6 +441,8 @@ def RT_screen_cam(kernel_size):
 
                 top_left, bottom_left, bottom_right, top_right = corners
 
+                # new_im = increase_saturation(frame, saturation_factor=1.5)
+
                 warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right, frame)
 
                 warped_images_list.append(warped_image)
@@ -411,14 +454,41 @@ def RT_screen_cam(kernel_size):
                     print("Exiting capture loop.")
                     break
 
-                # color_array = kernal_inbetween(top_left, top_right, bottom_left, bottom_right, frame, kernel_size)
-                # print(kernel_size)
+                # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
 
-                color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
+                top_left = (0, 0)
+                top_right = (640-1, 0)
+                bottom_left = (0, 480-1)
+                bottom_right = (640-1, 480-1)
+
+                color_array = kernal_inbetween(top_left, top_right, bottom_left, bottom_right, warped_image, 50)
+                # print(kernel_size)
+                # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
 
                 avg_color = average_colors(color_array)
-
+                # print(avg_color)
                 draw_color_line(avg_color)
+
+            # top_left = (0, 0)
+            # top_right = (640-1, 0)
+            # bottom_left = (0, 480-1)
+            # bottom_right = (640-1, 480-1)
+
+                # color_array = kernal_inbetween(top_left, top_right, bottom_left, bottom_right, warped_image, 50)
+
+                # # # Apply color corrections
+                # new_color_array = np.array(color_array)
+                # red_channel = new_color_array[:, 0]
+                # green_channel = new_color_array[:, 1]
+                # blue_channel = new_color_array[:, 2]
+
+                # stacked_image = applyWhiteBalancing(red_channel, green_channel, blue_channel)
+                # corrected_color_array = applyGammaAndCompress(stacked_image)
+
+                # # Use corrected_color_array for further processing
+                # avg_color = average_colors(corrected_color_array)
+                # # print(avg_color)
+                # draw_color_line(avg_color)
 
         except ValueError as e:
             print(f"Error processing image: {e}")
