@@ -137,7 +137,7 @@ def line_properties(pt1, pt2):
 ##################################################################################################
 
 
-def kernal_inbetween(k_image, gaussian_kernel, segments=60):
+def kernal_inbetween(k_image, gaussian_kernel, segments):
     #step inbetween 
     horizontal_steps = int(segments*0.4)
     vertical_steps = int(segments*0.3)
@@ -478,7 +478,7 @@ def RT_screen_cam(kernel_size):
 
                 # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
 
-                color_array = np.array(kernal_inbetween(warped_image, g_1))
+                color_array = np.array(kernal_inbetween(warped_image, g_1, segments=2))
                 # print(kernel_size)
                 # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
                 avg_color = average_colors(color_array)
@@ -541,6 +541,7 @@ if __name__ == '__main__':
     parser.add_argument("--kernel_size", type=int, help="color kernel size", default=50)
     args = parser.parse_args()
 
+    # arg parse num of led segments
     RT_screen_cam(args.kernel_size)
 
     # play_video_folder()
