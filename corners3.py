@@ -137,7 +137,7 @@ def line_properties(pt1, pt2):
 ##################################################################################################
 
 
-def kernal_inbetween(k_image, gaussian_kernel, segments=60):
+def kernal_inbetween(k_image, gaussian_kernel, segments):
     #step inbetween 
     horizontal_steps = int(segments*0.4)
     vertical_steps = int(segments*0.3)
@@ -489,7 +489,7 @@ def RT_screen_cam(kernel_size):
                 #SENDING TO PRANAV
                 flattened = list(np.concatenate(color_array))
                 send_buf = [segments] + flattened + [9999]
-                control_arduino_led("COM3", 9600, send_buf)
+                control_arduino_led("COM3", 115200, send_buf)
 
             
                 
@@ -542,6 +542,7 @@ if __name__ == '__main__':
     parser.add_argument("--kernel_size", type=int, help="color kernel size", default=50)
     args = parser.parse_args()
 
+    # arg parse num of led segments
     RT_screen_cam(args.kernel_size)
 
     # play_video_folder()
