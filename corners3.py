@@ -7,7 +7,25 @@ import glob
 import scipy
 import argparse
 from scipy.ndimage import convolve
+import serial
+import time
 
+def control_arduino_led(port, baudrate, command):
+    """
+    Sends a command to the Arduino to control the onboard LED.
+
+    Args:
+        port (str): The serial port (e.g., 'COM3' or '/dev/ttyUSB0').
+        baudrate (int): The baud rate (e.g., 9600).
+        command (str): The command to send (e.g., '1,255,0,0,-1').
+    """
+    try:
+        with serial.Serial(port, baudrate, timeout=1) as ser:
+            time.sleep(2)  # Wait for Arduino to reset after serial connection
+            print(f"Connected to {port}. Sending command: {command}")
+            ser.write((command + '\n').encode('utf-8'))  # Send the command
+    except serial.SerialException as e:
+        print(f"Serial error: {e}")
 
 # not using this but keeping for reference
 def closest_point(points, target):
@@ -119,33 +137,35 @@ def line_properties(pt1, pt2):
 ##################################################################################################
 
 
-def kernal_inbetween(ptA, ptB, ptC, ptD, k_image, kernel_size, segments=60):
-
-    g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
-
+def kernal_inbetween(k_image, gaussian_kernel, segments=60):
     #step inbetween 
     horizontal_steps = int(segments*0.4)
     vertical_steps = int(segments*0.3)
     colors = []
     
+    ptA = (0, 0)
+    ptB = (640-1, 0)
+    ptC = (0, 480-1)
+    ptD = (640-1, 480-1)
+
     #A to C 
     for step in range(vertical_steps + 1):
         point_x = int(ptA[0] + step * (ptC[0] - ptA[0]) / vertical_steps)
         point_y = int(ptA[1] + step * (ptC[1] - ptA[1]) / vertical_steps)
-        kernel_output = cv.filter2D(k_image, -1, g_1)[point_y, point_x]
+        kernel_output = cv.filter2D(k_image, -1, gaussian_kernel)[point_y, point_x]
         colors.append(kernel_output)  
     #A to B
     for step in range(horizontal_steps + 1):
         point_x = int(ptA[0] + step * (ptB[0] - ptA[0]) / horizontal_steps)
         point_y = int(ptA[1] + step * (ptB[1] - ptA[1]) / horizontal_steps)
-        kernel_output = cv.filter2D(k_image, -1, g_1)[point_y, point_x]
+        kernel_output = cv.filter2D(k_image, -1, gaussian_kernel)[point_y, point_x]
         colors.append(kernel_output)  
 
     #B to D
     for step in range(vertical_steps + 1):
         point_x = int(ptB[0] + step * (ptD[0] - ptB[0]) / vertical_steps)
         point_y = int(ptB[1] + step * (ptD[1] - ptB[1]) / vertical_steps)
-        kernel_output = cv.filter2D(k_image, -1, g_1)[point_y, point_x]
+        kernel_output = cv.filter2D(k_image, -1, gaussian_kernel)[point_y, point_x]
         colors.append(kernel_output)  
 
     return colors
@@ -389,6 +409,8 @@ def RT_screen_cam(kernel_size):
     corners_detected = 0
     counter = 0
 
+    g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
+
 
     while True:
         # Capture frame-by-frame
@@ -456,18 +478,20 @@ def RT_screen_cam(kernel_size):
 
                 # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
 
-                top_left = (0, 0)
-                top_right = (640-1, 0)
-                bottom_left = (0, 480-1)
-                bottom_right = (640-1, 480-1)
-
-                color_array = kernal_inbetween(top_left, top_right, bottom_left, bottom_right, warped_image, 50)
+                color_array = np.array(kernal_inbetween(warped_image, g_1))
                 # print(kernel_size)
                 # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
-
                 avg_color = average_colors(color_array)
                 # print(avg_color)
                 draw_color_line(avg_color)
+                
+                #SENDING TO PRANAV
+                flattened = list(np.concatenate(color_array))
+                send_buf = [segments] + flattened + [9999]
+                control_arduino_led("COM3", 9600, send_buf)
+
+            
+                
 
             # top_left = (0, 0)
             # top_right = (640-1, 0)
