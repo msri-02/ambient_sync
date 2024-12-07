@@ -408,6 +408,7 @@ def RT_screen_cam(kernel_size):
 
     corners_detected = 0
     counter = 0
+    segments = 2
 
     g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
 
@@ -478,7 +479,7 @@ def RT_screen_cam(kernel_size):
 
                 # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
 
-                color_array = np.array(kernal_inbetween(warped_image, g_1, segments=2))
+                color_array = np.array(kernal_inbetween(warped_image, g_1, segments))
                 # print(kernel_size)
                 # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
                 avg_color = average_colors(color_array)
@@ -488,7 +489,7 @@ def RT_screen_cam(kernel_size):
                 #SENDING TO PRANAV
                 flattened = list(np.concatenate(color_array))
                 send_buf = [segments] + flattened + [9999]
-                control_arduino_led("COM3", 9600, send_buf)
+                control_arduino_led("COM3", 115200, send_buf)
 
             
                 
