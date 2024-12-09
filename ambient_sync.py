@@ -430,7 +430,11 @@ def RT_screen_cam(kernel_size):
                 # avg_color = average_colors(color_array)
                 # print(avg_color)
                 draw_color_line(color_array)
-                print(color_array)
+                for array in color_array:
+                    maxchannel = round(max(array) * 1.2)
+                    if maxchannel > 255:
+                        maxchannel = 255
+                    print(array) 
                 
 
 
