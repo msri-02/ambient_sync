@@ -126,11 +126,12 @@ def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):
     # print(homography_matrix)
     warped_image = cv.warpPerspective(image, homography_matrix, (width, height))
   
+  
+    cv.imshow('Warped Image', warped_image)
+    cv.waitKey(100)
+    cv.destroyAllWindows()
     return warped_image
 
-    # cv.imshow('Warped Image', warped_image)
-    # cv.waitKey(100)
-    # cv.destroyAllWindows()
     
 ##################################################################################################
 
@@ -281,6 +282,8 @@ def contour_images(image):
                 image = draw_line(image, top_right, bottom_right)
                 image = draw_line(image, bottom_right, bottom_left)
                 image = draw_line(image, top_left, bottom_left)
+                cv.imshow("Screen detection", image)
+                cv.waitKey(100)
                 return top_left, bottom_left, bottom_right, top_right
         else:
             print(f"Detected contour does not have 4 corners. Found {len(approx)} corners.")
@@ -491,7 +494,7 @@ def RT_screen_cam(kernel_size):
                 warped_images_list.append(warped_image)
 
                 # show all of the live warped images
-                # cv.imshow('warped_image', warped_image)
+                cv.imshow('warped_image', warped_image)
                 # wait 100 ms for each frame
                 if cv.waitKey(50) == ord('q'):
                     print("Exiting capture loop.")

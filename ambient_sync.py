@@ -78,15 +78,10 @@ def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):
     ], dtype=np.float32)
     
     homography_matrix = cv.getPerspectiveTransform(source_points, destination_points)
-    # print(homography_matrix)
     warped_image = cv.warpPerspective(image, homography_matrix, (width, height))
-  
     return warped_image
 
-    # cv.imshow('Warped Image', warped_image)
-    # cv.waitKey(100)
-    # cv.destroyAllWindows()
-    
+
 ##################################################################################################
 
 
@@ -126,7 +121,7 @@ def kernal_inbetween(k_image, gaussian_kernel, segments):
 ##################################################################################################
 
 
-    #                   top_left, top_right, bottom_left, bottom_right
+    # top_left, top_right, bottom_left, bottom_right
 def get_colors_inbetween(k_image, step=1, segments=60):
     horizontal_steps = int(segments*0.4)
     vertical_steps = int(segments*0.3)
@@ -242,6 +237,7 @@ def contour_images(image):
                 image = draw_line(image, top_right, bottom_right)
                 image = draw_line(image, bottom_right, bottom_left)
                 image = draw_line(image, top_left, bottom_left)
+
                 return top_left, bottom_left, bottom_right, top_right
         else:
             print(f"Detected contour does not have 4 corners. Found {len(approx)} corners.")
@@ -313,7 +309,6 @@ def play_video_folder():
 
 def detectScreen(frame):
     corners = contour_images(frame)
-
     if corners is None:
         print(f"Skipping image due to invalid contour.")
         
@@ -327,7 +322,6 @@ def RT_screen_cam(kernel_size):
     print("Starting webcam initialization...")
 
     start = time.time()
-    # Attempt to open the camera
     cap = cv.VideoCapture(1, cv.CAP_DSHOW)
     elapsed_time = time.time() - start
     if not cap.isOpened():
@@ -349,7 +343,7 @@ def RT_screen_cam(kernel_size):
 
     try:
         ser = serial.Serial("COM4", 115200, timeout=1)
-        time.sleep(2)  # Wait for Arduino to reset after serial connection
+        time.sleep(2)  
         print(f"Connected to {ser.name}.")
             # sendCommand(ser, command)
             # return ser
@@ -367,7 +361,6 @@ def RT_screen_cam(kernel_size):
             print("Can't receive frame (stream end?). Retrying...")
             continue  # Retry instead of exiting immediately
 
-        #print(f"Frame captured at {time.time():.2f} seconds")  # Log timestamp of each frame
         # Display the resulting frame
         cv.imshow('frame', frame)
 
@@ -418,6 +411,10 @@ def RT_screen_cam(kernel_size):
 
                 # show all of the live warped images
                 # cv.imshow('warped_image', warped_image)
+                # cv.imwrite("warped.png", warped_image)
+                # cv.waitKey(100)
+                # cv.destroyAllWindows()
+      
                 # wait 100 ms for each frame
                 if cv.waitKey(50) == ord('q'):
                     print("Exiting capture loop.")
@@ -455,9 +452,6 @@ def RT_screen_cam(kernel_size):
                 
                 send_buf = [segments] + flattened + [9999]
                 send_str = ','.join(map(str, send_buf))  # Convert list to a comma-separated string
-
-                # control_arduino_led("COM3", 115200, send_str)
-
                 
                 if ser and ser.is_open:     
                     print(f"Sent {x} : {send_str}")
