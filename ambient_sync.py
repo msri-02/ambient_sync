@@ -414,29 +414,30 @@ def RT_screen_cam(kernel_size):
                     print("Exiting capture loop.")
                     break
 
-                # warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
-                rgb_image = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
+                warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
+                # hsv_image = cv.cvtColor(warped_image, cv.COLOR_BGR2HSV)
                 #color_array = np.array(kernal_inbetween(rgb_image, g_1, segments))
 
                 if (kernel_size == 0):
-                    color_array = np.array(get_colors_inbetween(rgb_image, step= 5, segments=segments))
+                    color_array = np.array(get_colors_inbetween(warped_image_rgb, step= 5, segments=segments))
                     hsv_array = np.array(get_colors_inbetween(warped_image ,step= 5, segments=segments))
                 else:
-                    color_array = np.array(kernal_inbetween(rgb_image, g_1, segments))
+                    color_array = np.array(kernal_inbetween(warped_image_rgb, g_1, segments))
                     hsv_array = np.array(kernal_inbetween(warped_image, g_1, segments))
 
                 # print(kernel_size)
                 # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
                 # avg_color = average_colors(color_array)
                 # print(avg_color)
-                draw_color_line(hsv_array)
+                draw_color_line(color_array)
+                print(color_array)
                 
 
 
                 #SENDING TO PRANAV
                 flattened = list(np.concatenate(color_array))
                 # flattened = [int(num*.9) for num in flattened]
-                flattened = [abs(255-num) for num in flattened]
+                # flattened = [abs(255-num) for num in flattened]
                 
                 send_buf = [segments] + flattened + [9999]
                 send_str = ','.join(map(str, send_buf))  # Convert list to a comma-separated string
