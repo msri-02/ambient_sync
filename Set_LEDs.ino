@@ -3,7 +3,7 @@
 // Defines
 #define LED_PIN     6
 #define NUM_LEDS    60
-#define BRIGHTNESS  50  // Range: 0 to 255
+#define BRIGHTNESS  255  // Range: 0 to 255
 
 // Structs
 CRGB leds[NUM_LEDS];
@@ -22,8 +22,7 @@ void color_segments(int data[]);
 // Setup
 void setup() {
   Serial.begin(115200);
-  randomSeed(analogRead(0));
-  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812, LED_PIN, RGB>(leds, NUM_LEDS); // something to consider heree
   FastLED.setBrightness(BRIGHTNESS);  // Set global brightness here
 }
 
@@ -78,44 +77,43 @@ void setup() {
 //   delay(1000);  // Add a delay to slow down the output and prevent excessive printing
 // }
 
+
+const int max = 2000;
 // Everything
 void loop() {
-  static char receivedData[200];  // Buffer to hold the incoming string
-  static int data[200];           // Array to store parsed integers
+  static char receivedData[max];  // Buffer to hold the incoming string
+  static int data[max];           // Array to store parsed integers
   static int index = 0;           // Tracks position in the buffer
 
   // Check if data is available on the Serial
   while (Serial.available() > 0) {
     char incomingByte = Serial.read();
-
+    
+    //Turn the LED on
     // If a newline character is received, process the buffer
     if (incomingByte == '\n') {
       receivedData[index] = '\0';  // Null-terminate the string
       index = 0;                   // Reset the index for the next message
 
       // Parse the received data into the data array
-      parseArray(receivedData, data, 200);
-
-      // Print the parsed data array (for debugging)
-      Serial.println("Parsed data:");
-      for (int i = 0; data[i] != 9999 && i < 200; i++) {
-        Serial.print(data[i]);
-        Serial.print(" ");
-      }
-      Serial.println();  // New line after printing all data
+      parseArray(receivedData, data, max);
 
       // Call color_segments function with the parsed data
       color_segments(data);
-    } else {
+      // random_colors();
+    }
+    else {
       // Append incoming byte to the buffer
-      if (index < 199) {  // Prevent overflow
+      if (index < max - 1) {  // Prevent overflow
         receivedData[index++] = incomingByte;
-      }
+    }
+
     }
   }
+  // delay(15);  // Small delay to prevent overwhelming the Serial input
 
-  delay(100);  // Small delay to prevent overwhelming the Serial input
-}
+}   
+
 
 
 // Functions
@@ -161,35 +159,36 @@ void color_segments(int data[]) {
   }
 
   for (int seg = 0; seg < num_Of_Segs; seg++) { // Increment per segment
-    int r = 0, g = 0, b = 0; // Default to black (LED off)
+    int h = 0, s = 0, v = 0; // Default to black (LED off)
     
-    if (seg < valid_Segs) { // The current segment has valid (r,g,b) data
-    r = data[seg * 3 + 1]; // red LED data
-    g = data[seg * 3 + 2]; // green LED data
-    b = data[seg * 3 + 3]; // blue LED data
+    if (seg < valid_Segs) { // The current segment has valid (h,s,v) data
+      h = data[seg * 3 + 1]; // Hue data
+      s = data[seg * 3 + 2]; // Saturation data
+      v = data[seg * 3 + 3]; // Value (brightness) data
     }
 
-    Serial.print("Segment "); Serial.print(seg); 
-    Serial.print(": R="); Serial.print(r); 
-    Serial.print(", G="); Serial.print(g); 
-    Serial.print(", B="); Serial.println(b);
+    // Serial.print("Segment "); Serial.print(seg); 
+    // Serial.print(": R="); Serial.print(r); 
+    // Serial.print(", G="); Serial.print(g); 
+    // Serial.print(", B="); Serial.println(b);
 
     for(int LED = 0; LED < LEDs_Per_Seg; LED++) { // Increment per LED in a segment
       int LED_idx = seg * LEDs_Per_Seg + LED; // Calculate the absolute LED index (which segment)
-      leds[LED_idx] = CRGB(r, g, b); // Set the segments LEDs to a color   
+      leds[LED_idx] = CRGB(s, h, v); // Set the segments LEDs to a color   
     }
 
   }
   FastLED.show();
 
-  Serial.print("Valid Segs = "); Serial.println(valid_Segs);
-  Serial.print("LEDs/Seg = "); Serial.println(LEDs_Per_Seg); 
-  Serial.println("===================================");
+  // Serial.print("Valid Segs = "); Serial.println(valid_Segs);
+  // Serial.print("LEDs/Seg = "); Serial.println(LEDs_Per_Seg); 
+  // Serial.println("===================================");
 }
 
 void random_colors() {
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CRGB(255, 255, 48);   // Led 0 = Red
+    // leds[i] = CRGB(255, 255, 48);   // Led 0 = Red
+    leds[i] = CRGB(255, 0, 0);
     // leds[i+1] = CRGB(0, 255, 0); // Led 1 = Green
     // leds[i+2] = CRGB(0, 0, 255); // Led 2 = Blue
   }

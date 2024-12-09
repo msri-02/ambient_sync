@@ -191,7 +191,16 @@ def average_colors(colors, window_size=3):
         averaged_colors.append(average)
 
     return averaged_colors
+################################################################################################
+def applyWhiteBalancing(red_channel, green_channel, blue_channel):
+    # apply white balancing by scaling each channel so that it's mean is 0.25
+    red_coefficient = 0.5 / np.mean(red_channel)
+    green_coefficient = 0.5 / np.mean(green_channel)
+    blue_coefficient = 0.5 / np.mean(blue_channel)
 
+    # stack the scaled channels to create the new image
+    stacked_im = np.stack([red_channel * red_coefficient, green_channel * green_coefficient, blue_channel * blue_coefficient], axis = -1)
+    return stacked_im
 ##################################################################################################
 
 def contour_images(image):
@@ -413,6 +422,7 @@ def RT_screen_cam(kernel_size):
                 if cv.waitKey(50) == ord('q'):
                     print("Exiting capture loop.")
                     break
+
 
                 warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
                 # hsv_image = cv.cvtColor(warped_image, cv.COLOR_BGR2HSV)
