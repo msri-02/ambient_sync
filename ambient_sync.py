@@ -15,26 +15,11 @@ def sendCommand(ser, command):
 
 ##################################################################################################
 
-def control_arduino_led(port, baudrate, command):
-    try:
-        with serial.Serial(port, baudrate, timeout=1) as ser:
-            time.sleep(1)  # Wait for Arduino to reset after serial connection
-            print(f"Connected to {port}. Sending command: {command}")
-            return ser
-
-    except serial.SerialException as e:
-        print(f"Serial error: {e}")
-
-
-##################################################################################################
-
-
 def euclidean_distance(point1, point2):
     distance = np.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point1[1]) ** 2)  
     return distance  
 
 ##################################################################################################
-
 
 def draw_line(image, point1, point2, color=(0, 255, 0), thickness=2):
     cv.line(image, point1, point2, color, thickness)
@@ -42,18 +27,8 @@ def draw_line(image, point1, point2, color=(0, 255, 0), thickness=2):
 
 ##################################################################################################
 
-
 def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):    
     source_points = np.array([top_left, bottom_left, bottom_right, top_right], dtype=np.float32)
-
-    # width_top = euclidean_distance(top_left, top_right)
-    # width_bottom = euclidean_distance(bottom_left, bottom_right)
-    # width = int(max(width_top, width_bottom))
-
-    #  # calculate the desired height
-    # height_right = euclidean_distance(top_right, bottom_right)
-    # height_left = euclidean_distance(top_left, bottom_left)
-    # height = int(max(height_left, height_right))    
     
     # set warp frame size
     width = 640
@@ -62,7 +37,7 @@ def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):
     destination_points = np.array([
     [0, 0],                     # Top-left corner
     [0, height -1 ],            # Bottom-left corner
-    [width - 1, height  -1 ]  ,   # Bottom-right corner
+    [width - 1, height  -1 ]  ,  # Bottom-right corner
     [width - 1, 0],             # Top-right corner
     ], dtype=np.float32)
     
@@ -109,8 +84,6 @@ def kernal_inbetween(k_image, gaussian_kernel, segments):
 
 ##################################################################################################
 
-
-    # top_left, top_right, bottom_left, bottom_right
 def get_colors_inbetween(k_image, step, segments=60):
     horizontal_steps = int(segments*0.4)
     vertical_steps = int(segments*0.3)
@@ -244,7 +217,6 @@ def show_video(images,title):
 # show a video folder of frames, then show the corresponding output warped images
 def play_video_folder():
 
-    # Probably need to change this, but code your own path!
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Specify the image folder that you want to use and specify type, ex: .png, .jpg, etc.
@@ -294,9 +266,7 @@ def detectScreen(frame):
 
 def RT_screen_cam(kernel_size, display_type):
     x = 0
-
     print("Starting webcam initialization...")
-
     cap = cv.VideoCapture(0, cv.CAP_DSHOW)
 
     if not cap.isOpened():
@@ -327,45 +297,33 @@ def RT_screen_cam(kernel_size, display_type):
         print(f"Serial error: {e}")
 
     while True:
-            
         # Capture frame-by-frame
         ret, frame = cap.read()
-                
         if not ret:
             print("Can't receive frame (stream end?). Retrying...")
             continue
-
         cv.imshow('frame', frame)
 
         try:
-
             # wait 50 counter iterations to determine corners, when found, set flag, warp and extract color
             if not corners_detected and counter < 50:
                 corners = detectScreen(frame)
-
                 # show contour results after 50 loops
                 # cv.imshow('frame', frame)
                 if cv.waitKey(1) == ord('q'):
                     print("Exiting capture loop.")
                     break
-
             if counter == 50:
-
                 corners_detected = 1
-
             if corners_detected and counter > 50:
-
                 top_left, bottom_left, bottom_right, top_right = corners
-
                 warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right, frame)
-
                 # wait 10 ms for each frame, lower wait times cause LED flickering
                 if cv.waitKey(10) == ord('q'):
                     print("Exiting capture loop.")
                     break
 
                 warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
-
                 if (kernel_size == 0):
                     color_array = np.array(get_colors_inbetween(warped_image_rgb, step= 5, segments=segments))
                 else:
@@ -375,22 +333,6 @@ def RT_screen_cam(kernel_size, display_type):
                 if display_type == 0:
                     color_array = average_colors(color_array) # average colors along edges using desired window size
 
-                # amplify highest rgb channel value, if green, max out
-                # for array in color_array:
-
-                #     round(max(array) * 1.5)
-                #     # maxchannel = round(max(array) * 1.5)
-                    
-                #     if max(array) == array[1]:
-                #         array[1] = 255
-                #         array[2] = array[2] - 50
-                #         if array[2] < 0:
-                #             array[2] = 0 
-                    
-                #     if round(max(array) * 1.5) > 255:
-                #         max(array) == 255
-
-                
                 flattened = list(np.concatenate(color_array))
 
                 send_buf = [segments] + flattened + [9999]
@@ -401,19 +343,13 @@ def RT_screen_cam(kernel_size, display_type):
                     # print(f"Sent {x} : {send_str}")
                     x += 1
                     sendCommand(ser, send_str)
-
                 else:
                     print("FAILED TO SEND CMD")
-
             # when counter reaches 50, confirm screen detection
             counter += 1
-
-
         except ValueError as e:
             print(f"Error processing image: {e}")
             continue
-
-
     # When everything done, release the capture
     cap.release()
     cv.destroyAllWindows()
