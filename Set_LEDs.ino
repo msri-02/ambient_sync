@@ -26,60 +26,9 @@ void setup() {
   FastLED.setBrightness(BRIGHTNESS);  // Set global brightness here
 }
 
-//Main Loop
-// void loop() {
-//   color_segments(LED_Packet);
-//   delay(100000);
-// }
-
-// Test parser w/ example
-// void loop() {
-//   static int data[200];  // Array to store parsed integers
-
-//   // Example input string (this would come from Serial in a real scenario)
-//   const char* receivedData = "10, 5, 138, 255, 255, 3, 255, 255, 255, 48, 255, 255, 86, 5, 138, 255, 3, 141, 255, 242, 255, 131, 255, 255, 6, 255, 180, 50, 255, 180, 50, 255, 11, 255, 5, 138, 255, 85, 241, 255, 9999]";
-
-//   // Parse the string into the data array
-//   parseArray(receivedData, data, 200);
-
-//   // Print the parsed data array (for debugging)
-//   Serial.println("Parsed data:");
-//   for (int i = 0; data[i] != 9999 && i < 200; i++) {
-//     Serial.print(data[i]);
-//     Serial.print(" ");
-//   }
-//   Serial.println();  // New line after printing all data
-
-//   delay(1000);  // Add a delay to slow down the output and prevent excessive printing
-// }
-
-// parser + function w/ example
-// void loop() {
-//   static int data[200];  // Array to store parsed integers
-
-//   // Example input string (this would come from Serial in a real scenario)
-//   const char* receivedData = "10, 5, 138, 255, 255, 3, 255, 255, 255, 48, 255, 255, 86, 5, 138, 255, 3, 141, 255, 242, 255, 131, 255, 255, 6, 255, 180, 50, 255, 180, 50, 255, 11, 255, 5, 138, 255, 85, 241, 255, 9999";
-
-//   // Parse the string into the data array
-//   parseArray(receivedData, data, 200);
-
-//   // Print the parsed data array (for debugging)
-//   Serial.println("Parsed data:");
-//   for (int i = 0; data[i] != 9999 && i < 200; i++) {
-//     Serial.print(data[i]);
-//     Serial.print(" ");
-//   }
-//   Serial.println();  // New line after printing all data
-
-//   // Call color_segments function with the parsed data
-//   color_segments(data);
-
-//   delay(1000);  // Add a delay to slow down the output and prevent excessive printing
-// }
-
 
 const int max = 2000;
-// Everything
+// main loop
 void loop() {
   static char receivedData[max];  // Buffer to hold the incoming string
   static int data[max];           // Array to store parsed integers
@@ -110,7 +59,6 @@ void loop() {
 
     }
   }
-  // delay(15);  // Small delay to prevent overwhelming the Serial input
 
 }   
 
@@ -118,8 +66,8 @@ void loop() {
 
 // Functions
 void parseArray(const char* input, int* data, int maxSize) {
-  int index = 0;  // Array index for storing parsed integers
-  int num = 0;    // Variable to hold the current number
+  int index = 0;  
+  int num = 0;    
 
   for (int i = 0; input[i] != '\0' && index < maxSize; i++) {
     char currentChar = input[i];
@@ -130,7 +78,7 @@ void parseArray(const char* input, int* data, int maxSize) {
     }
     // If we hit a delimiter (comma), store the number
     else if (currentChar == ',') {
-      data[index++] = num;  // Store the number in the array
+      data[index++] = num; 
       num = 0;  // Reset the number for the next one
     }
   }
@@ -146,10 +94,7 @@ void parseArray(const char* input, int* data, int maxSize) {
 
 
 void color_segments(int data[]) {
-  /*
-    Divide up the strip into n=data[0] equal segments (groups of LEDs)
-    For each segment, set the LEDs to data[n,n+1,n+2] color (r,g,b)  
-  */
+
   int num_Of_Segs = data[0]; // Extract the # of segments (ex. 3)
   int LEDs_Per_Seg = NUM_LEDS / num_Of_Segs; // Evenly group LEDs into each segment (ex. 20)
 
@@ -161,16 +106,11 @@ void color_segments(int data[]) {
   for (int seg = 0; seg < num_Of_Segs; seg++) { // Increment per segment
     int h = 0, s = 0, v = 0; // Default to black (LED off)
     
-    if (seg < valid_Segs) { // The current segment has valid (h,s,v) data
+    if (seg < valid_Segs) {
       h = data[seg * 3 + 1]; // Hue data
       s = data[seg * 3 + 2]; // Saturation data
       v = data[seg * 3 + 3]; // Value (brightness) data
     }
-
-    // Serial.print("Segment "); Serial.print(seg); 
-    // Serial.print(": R="); Serial.print(r); 
-    // Serial.print(", G="); Serial.print(g); 
-    // Serial.print(", B="); Serial.println(b);
 
     for(int LED = 0; LED < LEDs_Per_Seg; LED++) { // Increment per LED in a segment
       int LED_idx = seg * LEDs_Per_Seg + LED; // Calculate the absolute LED index (which segment)
@@ -180,9 +120,6 @@ void color_segments(int data[]) {
   }
   FastLED.show();
 
-  // Serial.print("Valid Segs = "); Serial.println(valid_Segs);
-  // Serial.print("LEDs/Seg = "); Serial.println(LEDs_Per_Seg); 
-  // Serial.println("===================================");
 }
 
 void random_colors() {

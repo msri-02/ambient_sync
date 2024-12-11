@@ -9,26 +9,17 @@ import argparse
 from scipy.ndimage import convolve
 import serial
 import time
-# from serial import Serial as ser 
 
 def sendCommand(ser, command):
-    ser.write((command + '\n').encode('utf-8'))  # Send the command
+    ser.write((command + '\n').encode('utf-8'))  # Send serial command data
 
+##################################################################################################
 
 def control_arduino_led(port, baudrate, command):
-    """
-    Sends a command to the Arduino to control the onboard LED.
-
-    Args:
-        port (str): The serial port (e.g., 'COM3' or '/dev/ttyUSB0').
-        baudrate (int): The baud rate (e.g., 9600).
-        command (str): The command to send (e.g., '1,255,0,0,-1').
-    """
     try:
         with serial.Serial(port, baudrate, timeout=1) as ser:
             time.sleep(1)  # Wait for Arduino to reset after serial connection
             print(f"Connected to {port}. Sending command: {command}")
-            # sendCommand(ser, command)
             return ser
 
     except serial.SerialException as e:
@@ -54,9 +45,6 @@ def draw_line(image, point1, point2, color=(0, 255, 0), thickness=2):
 
 def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):    
     source_points = np.array([top_left, bottom_left, bottom_right, top_right], dtype=np.float32)
-    # hardcoded
-    # width = 640
-    # height = 480
 
     # width_top = euclidean_distance(top_left, top_right)
     # width_bottom = euclidean_distance(bottom_left, bottom_right)
@@ -67,6 +55,7 @@ def perspective_warp(top_left, bottom_left, bottom_right, top_right, image):
     # height_left = euclidean_distance(top_left, bottom_left)
     # height = int(max(height_left, height_right))    
     
+    # set warp frame size
     width = 640
     height = 480
 
@@ -122,7 +111,7 @@ def kernal_inbetween(k_image, gaussian_kernel, segments):
 
 
     # top_left, top_right, bottom_left, bottom_right
-def get_colors_inbetween(k_image, step=1, segments=60):
+def get_colors_inbetween(k_image, step, segments=60):
     horizontal_steps = int(segments*0.4)
     vertical_steps = int(segments*0.3)
     colors = []
@@ -186,16 +175,7 @@ def average_colors(colors, window_size=3):
         averaged_colors.append(average)
 
     return averaged_colors
-################################################################################################
-def applyWhiteBalancing(red_channel, green_channel, blue_channel):
-    # apply white balancing by scaling each channel so that it's mean is 0.25
-    red_coefficient = 0.5 / np.mean(red_channel)
-    green_coefficient = 0.5 / np.mean(green_channel)
-    blue_coefficient = 0.5 / np.mean(blue_channel)
 
-    # stack the scaled channels to create the new image
-    stacked_im = np.stack([red_channel * red_coefficient, green_channel * green_coefficient, blue_channel * blue_coefficient], axis = -1)
-    return stacked_im
 ##################################################################################################
 
 def contour_images(image):
@@ -252,15 +232,16 @@ def contour_images(image):
 
 def show_video(images,title):
     for image in images:
-            cv.imshow(title, image)  # Display the image in the OpenCV window
-            key = cv.waitKey(300)  # Wait for 30 ms for the next frame
+            cv.imshow(title, image) 
+            key = cv.waitKey(300)  # Wait for 300 ms for the next frame
             if key == 27:  # Exit if 'ESC' is pressed
                 break
-    cv.destroyAllWindows()  # Close the OpenCV window after the video ends
+    cv.destroyAllWindows()
 
 
 ##################################################################################################
 
+# show a video folder of frames, then show the corresponding output warped images
 def play_video_folder():
 
     # Probably need to change this, but code your own path!
@@ -289,12 +270,6 @@ def play_video_folder():
 
             warped_images_list.append(warped_image)
 
-            # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, image)
-
-            # avg_color = average_colors(color_array)
-
-            # draw_color_line(avg_color)
-
         except ValueError as e:
             print(f"Error processing image: {e}")
             continue
@@ -317,64 +292,59 @@ def detectScreen(frame):
 
 ##################################################################################################
 
-def RT_screen_cam(kernel_size):
+def RT_screen_cam(kernel_size, display_type):
     x = 0
+
     print("Starting webcam initialization...")
 
-    start = time.time()
-    cap = cv.VideoCapture(1, cv.CAP_DSHOW)
-    elapsed_time = time.time() - start
+    cap = cv.VideoCapture(0, cv.CAP_DSHOW)
+
     if not cap.isOpened():
-        print(f"Failed to open camera after {elapsed_time:.2f} seconds.")
+        print("Failed to open camera.\n")
         exit()
 
-    print(f"Camera opened successfully in {elapsed_time:.2f} seconds.")
+    print("Camera opened successfully.\n")
     print("Starting to capture frames...")
 
-    warped_images_list = []
-
+    # flag determining screen corners found
     corners_detected = 0
+
+    # arbitrary counter to ensure consistent corner points found
     counter = 0
+
+    # segments represents number of LEDs
     segments = 60
-    connected = 0
     
     g_1 = scipy.signal.windows.gaussian(kernel_size, std=1)
-    # ser = None
 
     try:
-        ser = serial.Serial("COM4", 115200, timeout=1)
+        # connect to desired serial port and set baud rate
+        ser = serial.Serial("COM6", 115200, timeout=1)
         time.sleep(2)  
         print(f"Connected to {ser.name}.")
-            # sendCommand(ser, command)
-            # return ser
 
     except serial.SerialException as e:
         print(f"Serial error: {e}")
 
-
-
     while True:
+            
         # Capture frame-by-frame
         ret, frame = cap.read()
-        
+                
         if not ret:
             print("Can't receive frame (stream end?). Retrying...")
-            continue  # Retry instead of exiting immediately
+            continue
 
-        # Display the resulting frame
         cv.imshow('frame', frame)
 
         try:
 
-            # X amount of contours to allow the camera to find the screen, pause the screen and check that the screen is valid
-            # if not, press a key and try again, otherwise lock in place and keep taking that data from that spot in the screen
-
+            # wait 50 counter iterations to determine corners, when found, set flag, warp and extract color
             if not corners_detected and counter < 50:
                 corners = detectScreen(frame)
 
                 # show contour results after 50 loops
                 # cv.imshow('frame', frame)
-                # wait 100 ms for each frame
                 if cv.waitKey(1) == ord('q'):
                     print("Exiting capture loop.")
                     break
@@ -383,82 +353,60 @@ def RT_screen_cam(kernel_size):
 
                 corners_detected = 1
 
-                # Wait for a key press for 1 ms
-                key = cv.waitKey(1) & 0xFF
-
-                if key == ord('p'):  # Press 'p' to pause
-                    paused = not paused  # Toggle pause state
-                    if paused:
-                        print("Webcam paused. Press 'p' to resume.")
-                    else:
-                        print("Webcam resumed.")
-
-                elif key == ord('q'):  # Press 'q' to quit
-                    print("Exiting webcam feed.")
-                    break
-
-            counter += 1
-
             if corners_detected and counter > 50:
 
                 top_left, bottom_left, bottom_right, top_right = corners
 
-                # new_im = increase_saturation(frame, saturation_factor=1.5)
-
                 warped_image = perspective_warp(top_left, bottom_left, bottom_right, top_right, frame)
 
-                warped_images_list.append(warped_image)
-
-                # show all of the live warped images
-                # cv.imshow('warped_image', warped_image)
-                # cv.imwrite("warped.png", warped_image)
-                # cv.waitKey(100)
-                # cv.destroyAllWindows()
-      
-                # wait 100 ms for each frame
-                if cv.waitKey(50) == ord('q'):
+                # wait 10 ms for each frame, lower wait times cause LED flickering
+                if cv.waitKey(10) == ord('q'):
                     print("Exiting capture loop.")
                     break
 
-
                 warped_image_rgb = cv.cvtColor(warped_image, cv.COLOR_BGR2RGB)
-                # hsv_image = cv.cvtColor(warped_image, cv.COLOR_BGR2HSV)
-                #color_array = np.array(kernal_inbetween(rgb_image, g_1, segments))
 
                 if (kernel_size == 0):
                     color_array = np.array(get_colors_inbetween(warped_image_rgb, step= 5, segments=segments))
-                    hsv_array = np.array(get_colors_inbetween(warped_image ,step= 5, segments=segments))
                 else:
                     color_array = np.array(kernal_inbetween(warped_image_rgb, g_1, segments))
-                    hsv_array = np.array(kernal_inbetween(warped_image, g_1, segments))
 
-                # print(kernel_size)
-                # color_array = get_colors_inbetween(top_left, top_right, bottom_left, bottom_right, frame)
-                # avg_color = average_colors(color_array)
-                # print(avg_color)
-                draw_color_line(color_array)
-                for array in color_array:
-                    maxchannel = round(max(array) * 1.2)
-                    if maxchannel > 255:
-                        maxchannel = 255
-                    print(array) 
+                # if display type is 0 (default), average the colors, otherwise use individual color per LED
+                if display_type == 0:
+                    color_array = average_colors(color_array) # average colors along edges using desired window size
+
+                # amplify highest rgb channel value, if green, max out
+                # for array in color_array:
+
+                #     round(max(array) * 1.5)
+                #     # maxchannel = round(max(array) * 1.5)
+                    
+                #     if max(array) == array[1]:
+                #         array[1] = 255
+                #         array[2] = array[2] - 50
+                #         if array[2] < 0:
+                #             array[2] = 0 
+                    
+                #     if round(max(array) * 1.5) > 255:
+                #         max(array) == 255
+
                 
-
-
-                #SENDING TO PRANAV
                 flattened = list(np.concatenate(color_array))
-                # flattened = [int(num*.9) for num in flattened]
-                # flattened = [abs(255-num) for num in flattened]
-                
+
                 send_buf = [segments] + flattened + [9999]
-                send_str = ','.join(map(str, send_buf))  # Convert list to a comma-separated string
+                send_str = ','.join(map(str, send_buf))
                 
+                # send color data across serial data to micrcontroller
                 if ser and ser.is_open:     
-                    print(f"Sent {x} : {send_str}")
+                    # print(f"Sent {x} : {send_str}")
                     x += 1
                     sendCommand(ser, send_str)
+
                 else:
                     print("FAILED TO SEND CMD")
+
+            # when counter reaches 50, confirm screen detection
+            counter += 1
 
 
         except ValueError as e:
@@ -477,10 +425,10 @@ def RT_screen_cam(kernel_size):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="AmbientSync")
     parser.add_argument("--kernel_size", type=int, help="color kernel size", default=0)
+    parser.add_argument("--display_type", type=int, help="avg color across LEDs or color individual LEDs", default=0)
     args = parser.parse_args()
 
-    # arg parse num of led segments
-    RT_screen_cam(args.kernel_size)
+    RT_screen_cam(args.kernel_size, args.display_type)
 
     # play_video_folder()
 
