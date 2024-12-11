@@ -5,7 +5,7 @@ Ambient Sync is a DIY screen-sync LED lighting system that enhances your viewing
 ## To run:
 ```python
 python ambient_sync.py
-
+```
 ## Acknowledgments
 
 This project uses the following libraries:
